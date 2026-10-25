@@ -1,0 +1,52 @@
+flowchart TD
+    %% Swimlane Activity Diagram
+    Start([● Start: Family Searches Caregiver]) --> Search[Enter Search Criteria: Skills, Max Rate, Verified Badge]
+    Search --> FilterQuery[CaregiverRepository queries Firestore & applies filters]
+    FilterQuery --> ViewProfile[Family views Caregiver Profile, Hourly Rate & Bio]
+    ViewProfile --> BookAction[Family selects Visit Date, Time & Enters Service Notes]
+    BookAction --> CreateBooking[Create Booking document in Firestore with Status: PENDING]
+    
+    CreateBooking --> CaregiverNotify[Caregiver receives real-time snapshot & FCM alert]
+    CaregiverNotify --> DecisionAccept{Caregiver accepts request?}
+
+    DecisionAccept -- No (Decline) --> SetReject[Update Booking status: REJECTED]
+    SetReject --> NotifyFamilyReject[Family receives Rejection notification]
+    NotifyFamilyReject --> EndDecline([● Session Terminated])
+
+    DecisionAccept -- Yes (Accept) --> SetAccept[Update Booking status: ACCEPTED]
+    SetAccept --> ScheduledWait[Wait until Scheduled Visit Date & Time]
+    
+    ScheduledWait --> CaregiverArrive[Caregiver arrives at Family residence]
+    CaregiverArrive --> CheckInTap[Caregiver taps 'Check-In' on BookingDetailActivity]
+    CheckInTap --> RecordCheckIn[Capture System.currentTimeMillis and set Status: IN_PROGRESS]
+    
+    RecordCheckIn --> DeliverCare[Caregiver delivers eldercare / healthcare service]
+    DeliverCare --> FinishService[Care session completed]
+    
+    FinishService --> CheckOutTap[Caregiver taps 'Check-Out' on BookingDetailActivity]
+    CheckOutTap --> CaptureCheckOut[Capture System.currentTimeMillis]
+    
+    CaptureCheckOut --> FetchRate[Fetch Caregiver hourly rate from profile]
+    FetchRate --> CalcUseCase[Invoke BillCalculationUseCase.calculate]
+    
+    subgraph BillCalcSubprocess ["Automated Bill Calculation Logic"]
+        CalcDuration["duration = checkOutTimestamp - checkInTimestamp"]
+        CalcHours["loggedHours = round(duration / 3600000, 2 decimals)"]
+        CalcSubtotal["subtotal = loggedHours * hourlyRate"]
+        CalcTotal["totalAmount = subtotal + platformFee (₹50.0)"]
+        CalcDuration --> CalcHours --> CalcSubtotal --> CalcTotal
+    end
+    
+    CalcUseCase --> BillCalcSubprocess
+    CalcTotal --> SaveCompleted[Firestore updates: Status: COMPLETED, loggedHours & bill object]
+    
+    SaveCompleted --> DisplayInvoice[BookingDetailActivity renders itemized Invoice Card]
+    DisplayInvoice --> OfflinePay[Family inspects invoice & performs direct UPI / Cash payment]
+    
+    OfflinePay --> MarkSettled[Family taps 'Mark Settled']
+    MarkSettled --> UpdateSettlement[Firestore updates: settlementStatus: SETTLED]
+    
+    UpdateSettlement --> ShowReviewDialog[LeaveReviewDialog appears for Family]
+    ShowReviewDialog --> SubmitReview[Family rates 1-5 stars & enters feedback comment]
+    SubmitReview --> UpdateStats[ReviewRepository writes review & updates caregiver averageRating]
+    UpdateStats --> EndSuccess([● Service Lifecycle Successfully Completed])

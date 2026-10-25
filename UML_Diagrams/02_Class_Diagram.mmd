@@ -1,0 +1,241 @@
+classDiagram
+    direction TB
+
+    %% Enums
+    class UserRole {
+        <<enumeration>>
+        FAMILY
+        CAREGIVER
+        ADMIN
+        +fromString(role: String) UserRole
+    }
+
+    class VerificationStatus {
+        <<enumeration>>
+        PENDING
+        VERIFIED
+        REJECTED
+        +fromString(status: String) VerificationStatus
+    }
+
+    class BookingStatus {
+        <<enumeration>>
+        PENDING
+        ACCEPTED
+        REJECTED
+        IN_PROGRESS
+        COMPLETED
+        CANCELLED
+        +fromString(status: String) BookingStatus
+    }
+
+    class SettlementStatus {
+        <<enumeration>>
+        UNSETTLED
+        SETTLED
+        +fromString(status: String) SettlementStatus
+    }
+
+    %% Domain Entities
+    class User {
+        +String userId
+        +String fullName
+        +String email
+        +String phoneNumber
+        +UserRole role
+        +String profileImageUrl
+        +Boolean isEmailVerified
+        +Long createdAt
+        +Boolean isActive
+    }
+
+    class CaregiverLocation {
+        +String address
+        +Double latitude
+        +Double longitude
+    }
+
+    class CaregiverProfile {
+        +String caregiverId
+        +String fullName
+        +String email
+        +String phoneNumber
+        +String profileImageUrl
+        +List~String~ skills
+        +Double experienceYears
+        +Double hourlyRate
+        +CaregiverLocation location
+        +String bio
+        +String kycDocumentUrl
+        +VerificationStatus verificationStatus
+        +Double averageRating
+        +Int totalReviews
+        +Boolean isAvailable
+    }
+
+    class BillDetails {
+        +Double hourlyRate
+        +Double loggedHours
+        +Double subtotal
+        +Double platformFee
+        +Double totalAmount
+        +SettlementStatus settlementStatus
+    }
+
+    class Booking {
+        +String bookingId
+        +String familyId
+        +String familyName
+        +String caregiverId
+        +String caregiverName
+        +Long scheduledDate
+        +String serviceNotes
+        +BookingStatus status
+        +Long checkInTimestamp
+        +Long checkOutTimestamp
+        +Double totalLoggedHours
+        +BillDetails bill
+    }
+
+    class Review {
+        +String reviewId
+        +String bookingId
+        +String familyId
+        +String familyName
+        +String caregiverId
+        +Double rating
+        +String comment
+        +Long createdAt
+    }
+
+    %% Domain Use Case
+    class BillCalculationUseCase {
+        <<singleton>>
+        +calculate(checkIn: Long, checkOut: Long, hourlyRate: Double, platformFee: Double) BillDetails
+    }
+
+    %% Domain Repository Interfaces
+    class AuthRepository {
+        <<interface>>
+        +currentUserId: String?
+        +isUserLoggedIn: Boolean
+        +login(email, password) Resource~User~
+        +register(fullName, email, pwd, phone, role) Resource~User~
+        +sendEmailVerification() Resource~Unit~
+        +getCurrentUserProfile() Resource~User?~
+        +updateUserProfile(user) Resource~Unit~
+        +logout() void
+    }
+
+    class CaregiverRepository {
+        <<interface>>
+        +getCaregiverProfile(id) Resource~CaregiverProfile?~
+        +observeCaregiverProfile(id) Flow~Resource~CaregiverProfile?~~
+        +updateCaregiverProfile(profile) Resource~Unit~
+        +uploadKycDocument(id, fileUri) Resource~String~
+        +searchCaregivers(query, skill, maxRate, verified) Flow~Resource~List~CaregiverProfile~~~
+    }
+
+    class BookingRepository {
+        <<interface>>
+        +createBooking(booking) Resource~String~
+        +getBookingById(id) Resource~Booking?~
+        +observeFamilyBookings(familyId) Flow~Resource~List~Booking~~~
+        +observeCaregiverBookings(caregiverId) Flow~Resource~List~Booking~~~
+        +updateBookingStatus(id, newStatus) Resource~Unit~
+        +checkInCaregiver(id, timestamp) Resource~Unit~
+        +checkOutCaregiver(id, checkIn, checkOut, rate) Resource~Booking~
+        +updateSettlementStatus(id, status) Resource~Unit~
+    }
+
+    class AdminRepository {
+        <<interface>>
+        +observePendingCaregivers() Flow~Resource~List~CaregiverProfile~~~
+        +observeAllUsers() Flow~Resource~List~User~~~
+        +updateCaregiverVerification(id, status) Resource~Unit~
+        +updateUserActiveState(userId, isActive) Resource~Unit~
+    }
+
+    class ReviewRepository {
+        <<interface>>
+        +submitReview(review) Resource~Unit~
+        +observeCaregiverReviews(id) Flow~Resource~List~Review~~~
+    }
+
+    %% Data Implementations
+    class AuthRepositoryImpl {
+        -FirebaseAuth auth
+        -FirebaseFirestore firestore
+        +login()
+        +register()
+    }
+
+    class CaregiverRepositoryImpl {
+        -FirebaseFirestore firestore
+        -FirebaseStorage storage
+        +uploadKycDocument()
+        +searchCaregivers()
+    }
+
+    class BookingRepositoryImpl {
+        -FirebaseFirestore firestore
+        +checkInCaregiver()
+        +checkOutCaregiver()
+    }
+
+    class AdminRepositoryImpl {
+        -FirebaseFirestore firestore
+        +updateCaregiverVerification()
+    }
+
+    %% Presentation ViewModels
+    class AuthViewModel {
+        -AuthRepository authRepository
+        +LiveData~Resource~User~~ authState
+        +login(email, pwd)
+        +register(name, email, pwd, phone, role)
+    }
+
+    class FamilyViewModel {
+        -CaregiverRepository caregiverRepo
+        -BookingRepository bookingRepo
+        +searchCaregivers()
+        +createBooking(booking)
+    }
+
+    class CaregiverViewModel {
+        -CaregiverRepository caregiverRepo
+        -BookingRepository bookingRepo
+        +uploadKycDocument(id, uri)
+        +updateBookingStatus(id, status)
+    }
+
+    class AdminViewModel {
+        -AdminRepository adminRepo
+        +updateCaregiverVerification(id, status)
+        +updateUserActiveState(id, isActive)
+    }
+
+    %% Relationships
+    User o-- UserRole
+    CaregiverProfile o-- VerificationStatus
+    CaregiverProfile *-- CaregiverLocation
+    Booking o-- BookingStatus
+    Booking *-- BillDetails
+    BillDetails o-- SettlementStatus
+
+    AuthRepository <|.. AuthRepositoryImpl
+    CaregiverRepository <|.. CaregiverRepositoryImpl
+    BookingRepository <|.. BookingRepositoryImpl
+    AdminRepository <|.. AdminRepositoryImpl
+
+    BookingRepositoryImpl ..> BillCalculationUseCase : invokes
+    BookingRepositoryImpl ..> Booking : manages
+    CaregiverRepositoryImpl ..> CaregiverProfile : manages
+
+    AuthViewModel --> AuthRepository
+    FamilyViewModel --> CaregiverRepository
+    FamilyViewModel --> BookingRepository
+    CaregiverViewModel --> CaregiverRepository
+    CaregiverViewModel --> BookingRepository
+    AdminViewModel --> AdminRepository

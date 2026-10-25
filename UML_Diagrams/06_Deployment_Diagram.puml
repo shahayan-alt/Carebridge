@@ -1,0 +1,81 @@
+@startuml
+skinparam defaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam nodeBackgroundColor #F8FAFC
+skinparam nodeBorderColor #0D9488
+skinparam artifactBackgroundColor #FEF08A
+skinparam artifactBorderColor #D97706
+skinparam databaseBackgroundColor #FEE2E2
+skinparam databaseBorderColor #DC2626
+
+title CareBridge Application — Deployment Diagram
+
+node "Client Mobile Device
+(Physical Android Smartphone / AVD Emulator)" as MobileDevice {
+    node "Operating System: Android OS
+(API 26 Oreo to API 34 Upside Down Cake)" as AndroidOS {
+        node "Process: com.carebridge.app
+(Android Runtime - ART)" as AppProcess {
+            artifact "CareBridge.apk
+(11.8 MB Release Package)" as APK
+            component "Presentation & Jetpack UI Engine" as UIEngine
+            component "Kotlin Coroutines & Flow Runtime" as Coroutines
+            component "Local Bitmap Compressor
+(Spark Base64 Engine)" as Compressor
+            component "Firestore Local SQLite/LRU Cache" as LocalCache
+            
+            APK --> UIEngine
+            APK --> Coroutines
+            APK --> Compressor
+            APK --> LocalCache
+        }
+        
+        component "Google Play Services
+(FCM Background Daemon)" as PlayServices
+    }
+}
+
+cloud "Secure Internet Communication" as Internet {
+    interface "HTTPS / TLS 1.3 (Port 443)
+RESTful Authentication" as HTTPS
+    interface "gRPC over HTTP/2
+Bi-directional Snapshot Streams" as GRPC
+    interface "FCM Push Protocol
+(Port 5228/5229/5230)" as FCMSocket
+}
+
+node "Google Cloud Platform (GCP)
+Firebase Cloud Infrastructure" as FirebaseCloud {
+    node "Firebase Authentication Service" as AuthService {
+        component "Identity Platform Engine" as AuthEngine
+        component "JWT Token Issuer & Verification Mailer" as TokenEngine
+    }
+    
+    node "Cloud Firestore Serverless Cluster" as FirestoreService {
+        component "Security Engine (firestore.rules)" as RulesEngine
+        database "users" as ColUsers
+        database "caregiver_profiles" as ColCaregivers
+        database "bookings" as ColBookings
+        database "reviews" as ColReviews
+        
+        RulesEngine --> ColUsers
+        RulesEngine --> ColCaregivers
+        RulesEngine --> ColBookings
+        RulesEngine --> ColReviews
+    }
+    
+    node "Firebase Cloud Messaging Gateway" as FCMGateway {
+        component "Push Notification Dispatcher" as PushEngine
+    }
+}
+
+' Connections
+AppProcess --> HTTPS
+AppProcess --> GRPC
+PlayServices --> FCMSocket
+
+HTTPS --> AuthService
+GRPC --> FirestoreService
+FCMSocket --> FCMGateway
+
+@enduml

@@ -1,0 +1,98 @@
+flowchart TB
+    %% CareBridge Use Case Diagram
+    subgraph Actors_Left ["Primary Users"]
+        Family["fa:fa-user Family Member<br/>(Client)"]
+        Caregiver["fa:fa-user-md Professional Caregiver<br/>(Service Provider)"]
+    end
+
+    subgraph Actors_Right ["Administrative & System Actors"]
+        Admin["fa:fa-shield-alt System Administrator"]
+        Firebase["fa:fa-cloud Firebase Cloud Backend<br/>(Auth, Firestore, FCM)"]
+    end
+
+    subgraph System_Boundary ["CareBridge Platform Application Boundary"]
+        subgraph Sub_Auth ["Authentication & Account Management"]
+            UC_Reg(["UC-01: Register Account"])
+            UC_Login(["UC-02: Sign In (Email/Password)"])
+            UC_VerifyEmail(["UC-03: Verify Email"])
+            UC_Role(["UC-04: Select / Manage Role"])
+            UC_ResetPwd(["UC-05: Reset Password"])
+        end
+
+        subgraph Sub_Family ["Family Care Discovery & Booking"]
+            UC_Search(["UC-06: Search & Filter Caregivers<br/>(Skills, Rate, Verification)"])
+            UC_ViewProfile(["UC-07: View Caregiver Profile & Bio"])
+            UC_Book(["UC-08: Schedule Visit Booking"])
+            UC_FamilyBookings(["UC-09: Track Booking History & Status"])
+            UC_Settle(["UC-10: Confirm Direct / Offline Settlement"])
+            UC_Review(["UC-11: Submit Rating & Review"])
+        end
+
+        subgraph Sub_Caregiver ["Caregiver Workflow & Visit Execution"]
+            UC_Kyc(["UC-12: Upload KYC Identity Document<br/>(Compressed Base64 Image)"])
+            UC_EditProfile(["UC-13: Update Rates, Bio & Skills"])
+            UC_ManageReq(["UC-14: Accept / Decline Booking Requests"])
+            UC_CheckIn(["UC-15: Check-In (Start Visit Session)"])
+            UC_CheckOut(["UC-16: Check-Out (Complete Session)"])
+            UC_ViewInvoice(["UC-17: View Itemized Invoice"])
+        end
+
+        subgraph Sub_Admin ["Administration & Governance"]
+            UC_AuditKyc(["UC-18: Review Pending KYC Documents"])
+            UC_VerifyCaregiver(["UC-19: Approve / Reject Verification"])
+            UC_ManageUsers(["UC-20: Activate / Suspend User Accounts"])
+        end
+
+        subgraph Sub_Automation ["Automated Services"]
+            UC_CalcBill(["UC-21: Calculate Logged Hours & Bill<br/>(Subtotal + Platform Fee)"])
+            UC_PushNotify(["UC-22: Dispatch Push Notifications"])
+        end
+    end
+
+    %% Actor Connections - Family
+    Family --> UC_Reg
+    Family --> UC_Login
+    Family --> UC_VerifyEmail
+    Family --> UC_Role
+    Family --> UC_ResetPwd
+    Family --> UC_Search
+    Family --> UC_ViewProfile
+    Family --> UC_Book
+    Family --> UC_FamilyBookings
+    Family --> UC_Settle
+    Family --> UC_Review
+
+    %% Actor Connections - Caregiver
+    Caregiver --> UC_Reg
+    Caregiver --> UC_Login
+    Caregiver --> UC_VerifyEmail
+    Caregiver --> UC_Role
+    Caregiver --> UC_ResetPwd
+    Caregiver --> UC_Kyc
+    Caregiver --> UC_EditProfile
+    Caregiver --> UC_ManageReq
+    Caregiver --> UC_CheckIn
+    Caregiver --> UC_CheckOut
+    Caregiver --> UC_ViewInvoice
+
+    %% Actor Connections - Admin
+    Admin --> UC_Login
+    Admin --> UC_AuditKyc
+    Admin --> UC_VerifyCaregiver
+    Admin --> UC_ManageUsers
+
+    %% Includes & Extends
+    UC_CheckOut -.->|<<include>>| UC_CalcBill
+    UC_Book -.->|<<include>>| UC_PushNotify
+    UC_ManageReq -.->|<<include>>| UC_PushNotify
+    UC_FamilyBookings -.->|<<extend>>| UC_Review
+    UC_AuditKyc -.->|<<include>>| UC_VerifyCaregiver
+
+    %% Backend System Connections
+    UC_Reg --> Firebase
+    UC_Login --> Firebase
+    UC_VerifyEmail --> Firebase
+    UC_Kyc --> Firebase
+    UC_Book --> Firebase
+    UC_PushNotify --> Firebase
+    UC_CalcBill --> Firebase

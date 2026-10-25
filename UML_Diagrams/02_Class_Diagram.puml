@@ -1,0 +1,231 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam roundcorner 6
+skinparam defaultFontName "Segoe UI"
+skinparam packageStyle rectangle
+
+title CareBridge Application — Class Diagram (MVVM + Clean Architecture)
+
+package "Domain Layer — Entities & Value Objects" {
+    enum UserRole {
+        FAMILY
+        CAREGIVER
+        ADMIN
+        +fromString(role: String): UserRole
+    }
+
+    enum VerificationStatus {
+        PENDING
+        VERIFIED
+        REJECTED
+        +fromString(status: String): VerificationStatus
+    }
+
+    enum BookingStatus {
+        PENDING
+        ACCEPTED
+        REJECTED
+        IN_PROGRESS
+        COMPLETED
+        CANCELLED
+        +fromString(status: String): BookingStatus
+    }
+
+    enum SettlementStatus {
+        UNSETTLED
+        SETTLED
+        +fromString(status: String): SettlementStatus
+    }
+
+    class User {
+        +userId: String
+        +fullName: String
+        +email: String
+        +phoneNumber: String
+        +role: UserRole
+        +profileImageUrl: String
+        +isEmailVerified: Boolean
+        +createdAt: Long
+        +isActive: Boolean
+    }
+
+    class CaregiverLocation {
+        +address: String
+        +latitude: Double
+        +longitude: Double
+    }
+
+    class CaregiverProfile {
+        +caregiverId: String
+        +fullName: String
+        +email: String
+        +phoneNumber: String
+        +profileImageUrl: String
+        +skills: List<String>
+        +experienceYears: Double
+        +hourlyRate: Double
+        +location: CaregiverLocation
+        +bio: String
+        +kycDocumentUrl: String
+        +verificationStatus: VerificationStatus
+        +averageRating: Double
+        +totalReviews: Int
+        +isAvailable: Boolean
+    }
+
+    class BillDetails {
+        +hourlyRate: Double
+        +loggedHours: Double
+        +subtotal: Double
+        +platformFee: Double
+        +totalAmount: Double
+        +settlementStatus: SettlementStatus
+    }
+
+    class Booking {
+        +bookingId: String
+        +familyId: String
+        +familyName: String
+        +caregiverId: String
+        +caregiverName: String
+        +scheduledDate: Long
+        +serviceNotes: String
+        +status: BookingStatus
+        +checkInTimestamp: Long?
+        +checkOutTimestamp: Long?
+        +totalLoggedHours: Double
+        +bill: BillDetails?
+    }
+
+    class Review {
+        +reviewId: String
+        +bookingId: String
+        +familyId: String
+        +familyName: String
+        +caregiverId: String
+        +rating: Double
+        +comment: String
+        +createdAt: Long
+    }
+}
+
+package "Domain Layer — Use Cases & Repositories" {
+    class BillCalculationUseCase <<singleton>> {
+        +calculate(checkIn: Long, checkOut: Long, rate: Double, fee: Double): BillDetails
+    }
+
+    interface AuthRepository {
+        +currentUserId: String?
+        +isUserLoggedIn: Boolean
+        +login(email: String, pwd: String): Resource<User>
+        +register(name: String, email: String, pwd: String, phone: String, role: UserRole): Resource<User>
+        +sendEmailVerification(): Resource<Unit>
+        +getCurrentUserProfile(): Resource<User?>
+        +updateUserProfile(user: User): Resource<Unit>
+        +logout(): void
+    }
+
+    interface CaregiverRepository {
+        +getCaregiverProfile(id: String): Resource<CaregiverProfile?>
+        +observeCaregiverProfile(id: String): Flow<Resource<CaregiverProfile?>>
+        +updateCaregiverProfile(profile: CaregiverProfile): Resource<Unit>
+        +uploadKycDocument(id: String, uri: String): Resource<String>
+        +searchCaregivers(query: String, skill: String, rate: Double?, verified: Boolean): Flow<Resource<List<CaregiverProfile>>>
+    }
+
+    interface BookingRepository {
+        +createBooking(booking: Booking): Resource<String>
+        +getBookingById(id: String): Resource<Booking?>
+        +observeFamilyBookings(familyId: String): Flow<Resource<List<Booking>>>
+        +observeCaregiverBookings(caregiverId: String): Flow<Resource<List<Booking>>>
+        +updateBookingStatus(id: String, status: BookingStatus): Resource<Unit>
+        +checkInCaregiver(id: String, time: Long): Resource<Unit>
+        +checkOutCaregiver(id: String, checkIn: Long, checkOut: Long, rate: Double): Resource<Booking>
+        +updateSettlementStatus(id: String, status: SettlementStatus): Resource<Unit>
+    }
+
+    interface AdminRepository {
+        +observePendingCaregivers(): Flow<Resource<List<CaregiverProfile>>>
+        +observeAllUsers(): Flow<Resource<List<User>>>
+        +updateCaregiverVerification(id: String, status: VerificationStatus): Resource<Unit>
+        +updateUserActiveState(userId: String, active: Boolean): Resource<Unit>
+    }
+
+    interface ReviewRepository {
+        +submitReview(review: Review): Resource<Unit>
+        +observeCaregiverReviews(id: String): Flow<Resource<List<Review>>>
+    }
+}
+
+package "Data Layer — Repository Implementations" {
+    class AuthRepositoryImpl implements AuthRepository {
+        -auth: FirebaseAuth
+        -firestore: FirebaseFirestore
+    }
+
+    class CaregiverRepositoryImpl implements CaregiverRepository {
+        -firestore: FirebaseFirestore
+        -storage: FirebaseStorage
+    }
+
+    class BookingRepositoryImpl implements BookingRepository {
+        -firestore: FirebaseFirestore
+    }
+
+    class AdminRepositoryImpl implements AdminRepository {
+        -firestore: FirebaseFirestore
+    }
+
+    class ReviewRepositoryImpl implements ReviewRepository {
+        -firestore: FirebaseFirestore
+    }
+}
+
+package "Presentation Layer — ViewModels" {
+    class AuthViewModel {
+        -authRepo: AuthRepository
+        +authState: LiveData<Resource<User>>
+        +login(email: String, pwd: String): void
+        +register(name: String, email: String, pwd: String, phone: String, role: UserRole): void
+    }
+
+    class FamilyViewModel {
+        -caregiverRepo: CaregiverRepository
+        -bookingRepo: BookingRepository
+        +searchCaregivers(): LiveData<Resource<List<CaregiverProfile>>>
+        +createBooking(booking: Booking): void
+    }
+
+    class CaregiverViewModel {
+        -caregiverRepo: CaregiverRepository
+        -bookingRepo: BookingRepository
+        +uploadKycDocument(id: String, uri: String): void
+        +updateBookingStatus(id: String, status: BookingStatus): void
+    }
+
+    class AdminViewModel {
+        -adminRepo: AdminRepository
+        +updateCaregiverVerification(id: String, status: VerificationStatus): void
+        +updateUserActiveState(id: String, active: Boolean): void
+    }
+}
+
+' Structural Connections
+User "1" *-- "1" UserRole
+CaregiverProfile "1" *-- "1" VerificationStatus
+CaregiverProfile "1" *-- "1" CaregiverLocation
+Booking "1" *-- "1" BookingStatus
+Booking "1" *-- "0..1" BillDetails
+BillDetails "1" *-- "1" SettlementStatus
+
+BookingRepositoryImpl ..> BillCalculationUseCase : invokes
+BookingRepositoryImpl ..> Booking : persists
+
+AuthViewModel --> AuthRepository
+FamilyViewModel --> CaregiverRepository
+FamilyViewModel --> BookingRepository
+CaregiverViewModel --> CaregiverRepository
+CaregiverViewModel --> BookingRepository
+AdminViewModel --> AdminRepository
+
+@enduml

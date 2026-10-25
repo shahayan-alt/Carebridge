@@ -1,0 +1,65 @@
+sequenceDiagram
+    autonumber
+    actor Caregiver as Caregiver User
+    actor Family as Family Client
+    participant UI as BookingDetailActivity
+    participant VModel as Family / Caregiver ViewModel
+    participant BRepo as BookingRepositoryImpl
+    participant CRepo as CaregiverRepositoryImpl
+    participant UseCase as BillCalculationUseCase
+    participant RRepo as ReviewRepositoryImpl
+    participant Firestore as Cloud Firestore
+
+    Note over Caregiver, UI: --- Visit Check-In Phase ---
+    Caregiver->>UI: Taps 'Check-In' button
+    UI->>BRepo: checkInCaregiver(bookingId, currentTime)
+    BRepo->>Firestore: update("checkInTimestamp": ts, "status": "IN_PROGRESS")
+    Firestore-->>BRepo: Await completion (Success)
+    BRepo-->>UI: Resource.Success(Unit)
+    Firestore-->>UI: Real-time SnapshotListener emits (Status: IN_PROGRESS)
+    UI->>UI: UI updates: Displays Active Session & Check-Out button
+
+    Note over Caregiver, UI: --- Care Service Performed ---
+    Caregiver->>Caregiver: Delivers eldercare / companionship service
+
+    Note over Caregiver, UI: --- Visit Check-Out & Billing Phase ---
+    Caregiver->>UI: Taps 'Check-Out' button
+    UI->>CRepo: getCaregiverProfile(booking.caregiverId)
+    CRepo->>Firestore: collection("caregiver_profiles").document(id).get()
+    Firestore-->>CRepo: CaregiverProfile document snapshot
+    CRepo-->>UI: Resource.Success(profile: hourlyRate = ₹250.0)
+
+    UI->>BRepo: checkOutCaregiver(bookingId, checkInTime, checkOutTime, 250.0)
+    activate BRepo
+    BRepo->>Firestore: get existing Booking document
+    Firestore-->>BRepo: Booking data (checkInTime, etc.)
+    BRepo->>UseCase: calculate(checkInTime, checkOutTime, hourlyRate=250.0, fee=50.0)
+    activate UseCase
+    UseCase-->>BRepo: returns BillDetails(loggedHours=2.5, subtotal=625.0, fee=50.0, total=675.0)
+    deactivate UseCase
+
+    BRepo->>Firestore: update(checkOutTimestamp, totalLoggedHours=2.5, status="COMPLETED", bill=BillDto)
+    Firestore-->>BRepo: Write successful
+    BRepo-->>UI: Resource.Success(updatedBooking)
+    deactivate BRepo
+
+    Firestore-->>UI: SnapshotListener emits updated Booking (COMPLETED)
+    UI->>UI: Render Itemized Invoice Card (Hours, Subtotal, Platform Fee, Total)
+
+    Note over Family, UI: --- Direct Settlement & Rating Phase ---
+    Family->>UI: Inspects Invoice and delivers offline payment
+    Family->>UI: Taps 'Mark Settled'
+    UI->>BRepo: updateSettlementStatus(bookingId, SETTLED)
+    BRepo->>Firestore: update("bill.settlementStatus": "SETTLED")
+    Firestore-->>BRepo: Success
+    Firestore-->>UI: SnapshotListener emits (settlementStatus: SETTLED)
+
+    Family->>UI: Taps 'Leave Review'
+    UI->>UI: Opens LeaveReviewDialog(rating=5.0, comment="Excellent care")
+    Family->>UI: Taps 'Submit Review'
+    UI->>RRepo: submitReview(review)
+    RRepo->>Firestore: collection("reviews").document().set(reviewDto)
+    RRepo->>Firestore: update caregiver averageRating & totalReviews
+    Firestore-->>RRepo: Success
+    RRepo-->>UI: Resource.Success(Unit)
+    UI->>Family: Displays 'Thank you for your feedback!' Toast

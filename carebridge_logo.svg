@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="512" height="512">
+    <!-- Outer Teal Circle Background -->
+    <path fill="#0D9488" d="M60,10 C32.386,10 10,32.386 10,60 C10,87.614 32.386,110 60,110 C87.614,110 110,87.614 110,60 C110,32.386 87.614,10 60,10 Z" />
+
+    <!-- Inner Soft Ring -->
+    <path fill="none" stroke="#FFFFFF" stroke-width="3" stroke-opacity="0.3" d="M60,18 C36.8,18 18,36.8 18,60 C18,83.2 36.8,102 60,102 C83.2,102 102,83.2 102,60 C102,36.8 83.2,18 60,18 Z" />
+
+    <!-- Caring Hands / Bridge Arch Base -->
+    <path fill="#FFFFFF" fill-opacity="0.2" d="M35,80 C35,68 46,60 60,60 C74,60 85,68 85,80 L85,85 L35,85 Z" />
+
+    <!-- Healthcare Cross Vertical Bar -->
+    <path fill="#FFFFFF" d="M54,34 L66,34 A2,2 0 0 1 68,36 L68,68 A2,2 0 0 1 66,70 L54,70 A2,2 0 0 1 52,68 L52,36 A2,2 0 0 1 54,34 Z" />
+
+    <!-- Healthcare Cross Horizontal Bar -->
+    <path fill="#FFFFFF" d="M38,46 L82,46 A2,2 0 0 1 84,48 L84,56 A2,2 0 0 1 82,58 L38,58 A2,2 0 0 1 36,56 L36,48 A2,2 0 0 1 38,46 Z" />
+
+    <!-- Stethoscope Arch Curve & Accent -->
+    <path fill="none" stroke="#FEF08A" stroke-width="4" stroke-linecap="round" d="M32,44 C26,58 36,78 60,82 C84,78 94,58 88,44" />
+
+    <!-- Stethoscope Sensor Node / Heart Pulse -->
+    <circle cx="60" cy="82" r="6" fill="#F59E0B" />
+</svg>

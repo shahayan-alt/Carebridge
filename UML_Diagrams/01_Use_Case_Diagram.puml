@@ -1,0 +1,108 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam roundcorner 8
+skinparam monochrome false
+skinparam defaultFontName "Segoe UI"
+skinparam sequenceArrowThickness 1.5
+skinparam usecaseBackgroundColor #F0FDFA
+skinparam usecaseBorderColor #0D9488
+skinparam actorBorderColor #0F766E
+
+title CareBridge Application — Use Case Diagram
+
+actor "Family Member
+(Client)" as Family #E0F2FE
+actor "Professional Caregiver
+(Provider)" as Caregiver #FEF3C7
+actor "System Administrator" as Admin #FEE2E2
+actor "Firebase Cloud Backend
+(Auth, Firestore, FCM)" as Firebase #F3F4F6
+
+rectangle "CareBridge System Boundary" {
+    package "Authentication & Account" {
+        usecase "UC-01: Register Account" as UC_Reg
+        usecase "UC-02: Sign In (Email/Password)" as UC_Login
+        usecase "UC-03: Verify Email" as UC_VerifyEmail
+        usecase "UC-04: Select / Manage Role" as UC_Role
+        usecase "UC-05: Reset Password" as UC_ResetPwd
+    }
+
+    package "Family Discovery & Booking" {
+        usecase "UC-06: Search & Filter Caregivers" as UC_Search
+        usecase "UC-07: View Caregiver Profile & Bio" as UC_ViewProfile
+        usecase "UC-08: Schedule Visit Booking" as UC_Book
+        usecase "UC-09: Track Booking History & Status" as UC_FamilyBookings
+        usecase "UC-10: Confirm Direct / Offline Settlement" as UC_Settle
+        usecase "UC-11: Submit Rating & Review" as UC_Review
+    }
+
+    package "Caregiver Workflow & Visit Execution" {
+        usecase "UC-12: Upload KYC Identity Document" as UC_Kyc
+        usecase "UC-13: Update Rates, Bio & Skills" as UC_EditProfile
+        usecase "UC-14: Accept / Decline Booking Requests" as UC_ManageReq
+        usecase "UC-15: Check-In (Start Visit Session)" as UC_CheckIn
+        usecase "UC-16: Check-Out (Complete Session)" as UC_CheckOut
+        usecase "UC-17: View Itemized Invoice" as UC_ViewInvoice
+    }
+
+    package "Administration & Governance" {
+        usecase "UC-18: Review Pending KYC Documents" as UC_AuditKyc
+        usecase "UC-19: Approve / Reject Verification" as UC_VerifyCaregiver
+        usecase "UC-20: Activate / Suspend User Accounts" as UC_ManageUsers
+    }
+
+    package "Automated Services" {
+        usecase "UC-21: Calculate Logged Hours & Bill" as UC_CalcBill
+        usecase "UC-22: Dispatch Push Notifications" as UC_PushNotify
+    }
+}
+
+' Family Associations
+Family --> UC_Reg
+Family --> UC_Login
+Family --> UC_VerifyEmail
+Family --> UC_Role
+Family --> UC_ResetPwd
+Family --> UC_Search
+Family --> UC_ViewProfile
+Family --> UC_Book
+Family --> UC_FamilyBookings
+Family --> UC_Settle
+Family --> UC_Review
+
+' Caregiver Associations
+Caregiver --> UC_Reg
+Caregiver --> UC_Login
+Caregiver --> UC_VerifyEmail
+Caregiver --> UC_Role
+Caregiver --> UC_ResetPwd
+Caregiver --> UC_Kyc
+Caregiver --> UC_EditProfile
+Caregiver --> UC_ManageReq
+Caregiver --> UC_CheckIn
+Caregiver --> UC_CheckOut
+Caregiver --> UC_ViewInvoice
+
+' Admin Associations
+Admin --> UC_Login
+Admin --> UC_AuditKyc
+Admin --> UC_VerifyCaregiver
+Admin --> UC_ManageUsers
+
+' Relationships
+UC_CheckOut ..> UC_CalcBill : <<include>>
+UC_Book ..> UC_PushNotify : <<include>>
+UC_ManageReq ..> UC_PushNotify : <<include>>
+UC_FamilyBookings ..> UC_Review : <<extend>>
+UC_AuditKyc ..> UC_VerifyCaregiver : <<include>>
+
+' Firebase Backend Links
+UC_Reg --> Firebase
+UC_Login --> Firebase
+UC_VerifyEmail --> Firebase
+UC_Kyc --> Firebase
+UC_Book --> Firebase
+UC_PushNotify --> Firebase
+UC_CalcBill --> Firebase
+
+@enduml

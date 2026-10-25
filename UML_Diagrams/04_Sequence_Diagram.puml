@@ -1,0 +1,95 @@
+@startuml
+skinparam defaultFontName "Segoe UI"
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 6
+skinparam sequenceLifeLineBorderColor #0D9488
+skinparam sequenceLifeLineBackgroundColor #F0FDFA
+skinparam sequenceParticipantBackgroundColor #F8FAFC
+skinparam sequenceParticipantBorderColor #64748B
+
+title CareBridge — Sequence Diagram (Session Visit, Billing & Review Flow)
+
+autonumber
+
+actor "Caregiver User" as Caregiver #FEF3C7
+actor "Family Client" as Family #E0F2FE
+participant "BookingDetailActivity
+(Presentation UI)" as UI #F1F5F9
+participant "BookingRepositoryImpl
+(Data Layer)" as BRepo #CCFBF1
+participant "CaregiverRepositoryImpl
+(Data Layer)" as CRepo #CCFBF1
+participant "BillCalculationUseCase
+(Domain Layer)" as UseCase #FEF08A
+participant "ReviewRepositoryImpl
+(Data Layer)" as RRepo #CCFBF1
+database "Cloud Firestore
+(Firebase Backend)" as Firestore #FEE2E2
+
+== Check-In Visit Session ==
+Caregiver -> UI : Tap "Check-In"
+UI -> BRepo : checkInCaregiver(bookingId, timestamp)
+activate BRepo
+BRepo -> Firestore : update("checkInTimestamp": ts, "status": "IN_PROGRESS")
+Firestore --> BRepo : Await Write Result (OK)
+BRepo --> UI : Resource.Success(Unit)
+deactivate BRepo
+
+Firestore --> UI : SnapshotListener emits real-time update
+UI -> UI : Update UI: Status = IN_PROGRESS, Show "Check-Out" button
+
+== Service Delivery ==
+note over Caregiver, Family : Caregiver provides in-home medical / eldercare assistance
+
+== Check-Out Visit & Invoice Calculation ==
+Caregiver -> UI : Tap "Check-Out"
+UI -> CRepo : getCaregiverProfile(booking.caregiverId)
+CRepo -> Firestore : get caregiver document
+Firestore --> CRepo : profile snapshot (hourlyRate = 250.0)
+CRepo --> UI : Resource.Success(CaregiverProfile)
+
+UI -> BRepo : checkOutCaregiver(bookingId, checkIn, checkOut, rate=250.0)
+activate BRepo
+BRepo -> Firestore : get(bookingId)
+Firestore --> BRepo : current Booking document
+BRepo -> UseCase : calculate(checkInTime, checkOutTime, hourlyRate=250.0, fee=50.0)
+activate UseCase
+note right of UseCase
+  loggedHours = round(duration / 3600000, 2)
+  subtotal = loggedHours * hourlyRate
+  totalAmount = subtotal + platformFee (₹50)
+end note
+UseCase --> BRepo : BillDetails(loggedHours, subtotal, platformFee, totalAmount)
+deactivate UseCase
+
+BRepo -> Firestore : update("checkOutTimestamp", "totalLoggedHours", status="COMPLETED", "bill")
+Firestore --> BRepo : Await write OK
+BRepo --> UI : Resource.Success(Booking)
+deactivate BRepo
+
+Firestore --> UI : SnapshotListener notifies UI (COMPLETED)
+UI -> UI : Display Itemized Invoice Card
+(Logged Hours, Subtotal, Fee, Total Due)
+
+== Direct Settlement & Review Submission ==
+Family -> UI : Review Invoice & pay Caregiver offline
+Family -> UI : Tap "Mark Settled"
+UI -> BRepo : updateSettlementStatus(bookingId, SETTLED)
+BRepo -> Firestore : update("bill.settlementStatus": "SETTLED")
+Firestore --> BRepo : OK
+Firestore --> UI : SnapshotListener updates badge: SETTLED
+
+Family -> UI : Tap "Leave Review"
+UI -> UI : Open LeaveReviewDialog (Rating 5.0, comment)
+Family -> UI : Tap "Submit"
+UI -> RRepo : submitReview(review)
+activate RRepo
+RRepo -> Firestore : collection("reviews").add(reviewDto)
+RRepo -> Firestore : update caregiver averageRating & totalReviews
+Firestore --> RRepo : Success
+RRepo --> UI : Resource.Success(Unit)
+deactivate RRepo
+
+UI --> Family : Display "Thank you for your feedback!" Toast
+
+@enduml

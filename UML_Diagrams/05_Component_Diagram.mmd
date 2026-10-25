@@ -1,0 +1,109 @@
+flowchart TB
+    %% Component Diagram for CareBridge
+
+    subgraph Client_App ["CareBridge Native Android Application"]
+        subgraph Presentation_Comp ["Presentation Component (UI & ViewBinding)"]
+            AuthUI["Auth Subsystem<br/>(LoginActivity, RegisterActivity, EmailVerify)"]
+            FamilyUI["Family Subsystem<br/>(FamilyMainActivity, CaregiverDetail, BookCaregiver)"]
+            CaregiverUI["Caregiver Subsystem<br/>(CaregiverMainActivity, ProfileEditActivity)"]
+            AdminUI["Admin Subsystem<br/>(AdminMainActivity)"]
+            CommonUI["Common Base Subsystem<br/>(BaseActivity, SplashActivity, Adapters)"]
+
+            subgraph ViewModels_Layer ["MVVM ViewModels"]
+                AuthVM["AuthViewModel"]
+                FamilyVM["FamilyViewModel"]
+                CaregiverVM["CaregiverViewModel"]
+                AdminVM["AdminViewModel"]
+            end
+
+            AuthUI --> AuthVM
+            FamilyUI --> FamilyVM
+            CaregiverUI --> CaregiverVM
+            AdminUI --> AdminVM
+        end
+
+        subgraph DI_Comp ["Dependency Injection Subsystem"]
+            ServiceLocator["ServiceLocator<br/>(Singleton Registry)"]
+        end
+
+        subgraph Domain_Comp ["Domain Component (Pure Business Logic)"]
+            subgraph Domain_Entities ["Domain Entities"]
+                EntUser["User"]
+                EntCaregiver["CaregiverProfile"]
+                EntBooking["Booking"]
+                EntBill["BillDetails"]
+                EntReview["Review"]
+            end
+
+            subgraph Domain_UseCases ["Domain Use Cases"]
+                UC_Auth["AuthUseCases<br/>(Login, Register, Logout)"]
+                UC_Caregiver["CaregiverUseCases<br/>(Search, Profile, KYC)"]
+                UC_Booking["BookingUseCases<br/>(Create, CheckIn, CheckOut)"]
+                UC_Bill["BillCalculationUseCase<br/>(Duration Arithmetic & Fee)"]
+                UC_Admin["AdminUseCases<br/>(VerifyCaregiver, UserState)"]
+                UC_Review["ReviewUseCases<br/>(Submit, Observe)"]
+            end
+
+            subgraph Domain_Interfaces ["Repository Interfaces (Ports)"]
+                IAuthRepo["<<interface>><br/>AuthRepository"]
+                ICaregiverRepo["<<interface>><br/>CaregiverRepository"]
+                IBookingRepo["<<interface>><br/>BookingRepository"]
+                IAdminRepo["<<interface>><br/>AdminRepository"]
+                IReviewRepo["<<interface>><br/>ReviewRepository"]
+            end
+
+            UC_Auth --> IAuthRepo
+            UC_Caregiver --> ICaregiverRepo
+            UC_Booking --> IBookingRepo
+            UC_Booking --> UC_Bill
+            UC_Admin --> IAdminRepo
+            UC_Review --> IReviewRepo
+        end
+
+        subgraph Data_Comp ["Data Component (Persistence & Network Adapters)"]
+            subgraph Repos_Impl ["Repository Implementations (Adapters)"]
+                AuthRepoImpl["AuthRepositoryImpl"]
+                CaregiverRepoImpl["CaregiverRepositoryImpl"]
+                BookingRepoImpl["BookingRepositoryImpl"]
+                AdminRepoImpl["AdminRepositoryImpl"]
+                ReviewRepoImpl["ReviewRepositoryImpl"]
+            end
+
+            subgraph Data_Utils ["Data Models, Parsers & Utilities"]
+                Parsers["FirestoreParsers<br/>(Safe Numeric Type Casting)"]
+                DTOs["DTO Models<br/>(UserDto, BookingDto, etc.)"]
+                KycCompressor["ImageUtils / Bitmap Compressor<br/>(Spark Base64 JPEG Engine)"]
+                FcmService["CareBridgeMessagingService<br/>(FirebaseMessagingService)"]
+            end
+
+            AuthRepoImpl ..|> IAuthRepo
+            CaregiverRepoImpl ..|> ICaregiverRepo
+            BookingRepoImpl ..|> IBookingRepo
+            AdminRepoImpl ..|> IAdminRepo
+            ReviewRepoImpl ..|> IReviewRepo
+
+            CaregiverRepoImpl --> KycCompressor
+            BookingRepoImpl --> Parsers
+            CaregiverRepoImpl --> Parsers
+        end
+    end
+
+    subgraph Firebase_Cloud ["External Infrastructure — Google Firebase Backend"]
+        FB_Auth[("Firebase Authentication<br/>(JWT Token & Email Service)")]
+        FB_Firestore[("Cloud Firestore<br/>(NoSQL Database Collections)")]
+        FB_FCM[("Firebase Cloud Messaging<br/>(Push Notifications Gateway)")]
+    end
+
+    %% Wiring
+    ViewModels_Layer --> Domain_UseCases
+    ViewModels_Layer --> Domain_Interfaces
+    ServiceLocator ..> Repos_Impl : instantiates
+    ServiceLocator ..> Domain_UseCases : provides
+
+    AuthRepoImpl --> FB_Auth
+    AuthRepoImpl --> FB_Firestore
+    CaregiverRepoImpl --> FB_Firestore
+    BookingRepoImpl --> FB_Firestore
+    AdminRepoImpl --> FB_Firestore
+    ReviewRepoImpl --> FB_Firestore
+    FcmService --> FB_FCM

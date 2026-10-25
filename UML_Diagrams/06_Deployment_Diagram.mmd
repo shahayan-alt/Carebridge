@@ -1,0 +1,72 @@
+flowchart TB
+    %% Deployment Diagram for CareBridge
+
+    subgraph Client_Node ["Node: Android Mobile Client Device (Physical Device / Android Emulator)"]
+        subgraph Device_Hardware ["Hardware Architecture: ARM64-v8a / x86_64"]
+            TouchScreen["Touch Display / UI"]
+            CameraStorage["Camera & Local Storage<br/>(KYC Document Source)"]
+            NetAdapter["Network Interface Card<br/>(Wi-Fi / 4G / 5G Mobile Data)"]
+        end
+
+        subgraph OS_Runtime ["Operating System: Android OS (API Level 26 - 34)"]
+            subgraph App_Process ["Process: com.carebridge.app (Android Runtime / ART)"]
+                APK["Artifact: CareBridge.apk (11.8 MB)<br/>Compiled Bytecode & Native Assets"]
+                
+                subgraph App_Subsystems ["Runtime Execution Environment"]
+                    UI_Jetpack["Jetpack UI & ViewBinding Runtime"]
+                    Coroutines_Flow["Kotlin Coroutines & StateFlow Engine"]
+                    Client_Compressor["In-Memory Bitmap JPEG Compressor"]
+                    Local_Cache["Firestore Offline LRU Cache & SharedPrefs"]
+                end
+
+                APK --> UI_Jetpack
+                APK --> Coroutines_Flow
+                APK --> Client_Compressor
+                APK --> Local_Cache
+            end
+
+            GooglePlayServices["Google Play Services Subsystem<br/>(FCM Background Daemon)"]
+        end
+    end
+
+    subgraph Network_Cloud ["Network Protocol Communication Layer"]
+        HTTPS["HTTPS / TLS 1.3 (TCP Port 443)<br/>Restful Auth & Payload Security"]
+        GRPC["gRPC Bi-Directional Streaming (HTTP/2)<br/>Real-Time Firestore Snapshots"]
+        FCM_Prot["Push Messaging Protocol (Port 5228/5229/5230)<br/>Google Cloud Messaging Channel"]
+    end
+
+    subgraph Firebase_Cloud_Node ["Node: Google Cloud Platform (GCP) / Firebase Infrastructure"]
+        subgraph Auth_Cluster ["Firebase Authentication Service"]
+            Auth_Engine["Identity Platform Engine"]
+            Token_Issuer["JWT ID Token Issuer & SMTP Verification"]
+        end
+
+        subgraph Firestore_Cluster ["Cloud Firestore Serverless Cluster"]
+            Security_Rules["Security Rules Engine<br/>(firestore.rules Enforcement)"]
+            
+            subgraph DB_Collections ["NoSQL Collections"]
+                Col_Users[("users<br/>{userId, role, isEmailVerified}")]
+                Col_Caregivers[("caregiver_profiles<br/>{skills, rate, kycDocumentUrl}")]
+                Col_Bookings[("bookings<br/>{status, checkIn, checkOut, bill}")]
+                Col_Reviews[("reviews<br/>{rating, comment, timestamp}")]
+            end
+
+            Security_Rules --> Col_Users
+            Security_Rules --> Col_Caregivers
+            Security_Rules --> Col_Bookings
+            Security_Rules --> Col_Reviews
+        end
+
+        subgraph FCM_Gateway ["Firebase Cloud Messaging Gateway"]
+            Push_Dispatcher["Notification Dispatch Engine"]
+        end
+    end
+
+    %% Network links
+    NetAdapter --> HTTPS
+    NetAdapter --> GRPC
+    GooglePlayServices --> FCM_Prot
+
+    HTTPS --> Auth_Cluster
+    GRPC --> Firestore_Cluster
+    FCM_Prot --> FCM_Gateway

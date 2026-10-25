@@ -1,0 +1,103 @@
+@startuml
+skinparam componentStyle uml2
+skinparam defaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam componentBackgroundColor #F8FAFC
+skinparam componentBorderColor #0D9488
+
+title CareBridge Application — Component Diagram
+
+package "Client Mobile Application (Android OS)" {
+
+    package "Presentation Layer" {
+        [UI Activities & Dialogs] as UI
+        [ViewBinding Layout Engine] as ViewBinding
+        [MVVM ViewModels
+(AuthVM, FamilyVM, CaregiverVM, AdminVM)] as ViewModels
+        UI ..> ViewBinding
+        UI --> ViewModels
+    }
+
+    package "Dependency Injection" {
+        [ServiceLocator
+(Lazy Singleton Provider)] as ServiceLocator
+    }
+
+    package "Domain Layer (Clean Architecture Core)" {
+        [Domain Models
+(User, CaregiverProfile, Booking, BillDetails)] as Models
+        [Business Use Cases
+(BillCalculationUseCase, BookingUseCases, AuthUseCases)] as UseCases
+        
+        interface "AuthRepository" as IAuthRepo
+        interface "CaregiverRepository" as ICaregiverRepo
+        interface "BookingRepository" as IBookingRepo
+        interface "AdminRepository" as IAdminRepo
+        interface "ReviewRepository" as IReviewRepo
+
+        UseCases ..> Models
+        UseCases --> IAuthRepo
+        UseCases --> ICaregiverRepo
+        UseCases --> IBookingRepo
+        UseCases --> IAdminRepo
+        UseCases --> IReviewRepo
+    }
+
+    package "Data Layer (Persistence & Integration)" {
+        [AuthRepositoryImpl] as AuthImpl
+        [CaregiverRepositoryImpl] as CaregiverImpl
+        [BookingRepositoryImpl] as BookingImpl
+        [AdminRepositoryImpl] as AdminImpl
+        [ReviewRepositoryImpl] as ReviewImpl
+        
+        [FirestoreParsers
+(Safe Numeric Casting)] as Parsers
+        [Base64 Image Compressor
+(Spark Tier Storage Engine)] as Compressor
+        [CareBridgeMessagingService
+(FCM Receiver)] as FCMClient
+
+        AuthImpl .up.|> IAuthRepo
+        CaregiverImpl .up.|> ICaregiverRepo
+        BookingImpl .up.|> IBookingRepo
+        AdminImpl .up.|> IAdminRepo
+        ReviewImpl .up.|> IReviewRepo
+
+        CaregiverImpl ..> Compressor
+        BookingImpl ..> Parsers
+        CaregiverImpl ..> Parsers
+    }
+}
+
+cloud "Google Firebase Cloud Platform" {
+    database "Firebase Authentication
+(Identity & Email Service)" as FirebaseAuth
+    database "Cloud Firestore
+(NoSQL Real-Time Collections)" as Firestore
+    node "Firebase Cloud Messaging
+(Push Notification Service)" as FCMServer
+}
+
+' Inter-layer dependencies
+ViewModels --> UseCases
+ViewModels --> IAuthRepo
+ViewModels --> ICaregiverRepo
+ViewModels --> IBookingRepo
+ViewModels --> IAdminRepo
+
+ServiceLocator ..> AuthImpl : instantiates
+ServiceLocator ..> CaregiverImpl : instantiates
+ServiceLocator ..> BookingImpl : instantiates
+ServiceLocator ..> AdminImpl : instantiates
+ServiceLocator ..> UseCases : exposes
+
+' Data to Cloud
+AuthImpl --> FirebaseAuth : REST/gRPC
+AuthImpl --> Firestore : gRPC
+CaregiverImpl --> Firestore : gRPC
+BookingImpl --> Firestore : gRPC
+AdminImpl --> Firestore : gRPC
+ReviewImpl --> Firestore : gRPC
+FCMClient <.. FCMServer : Push Events
+
+@enduml

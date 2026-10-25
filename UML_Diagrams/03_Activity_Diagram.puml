@@ -1,0 +1,86 @@
+@startuml
+skinparam defaultFontName "Segoe UI"
+skinparam roundcorner 8
+skinparam activityBackgroundColor #F0FDFA
+skinparam activityBorderColor #0D9488
+skinparam activityDiamondBackgroundColor #FEF3C7
+skinparam activityDiamondBorderColor #D97706
+
+title CareBridge — Activity Diagram (Booking, Visit Execution & Automated Billing Lifecycle)
+
+|Family Client|
+start
+:Enter Search Criteria (Skills, Hourly Rate, Verified Only);
+:Browse Caregiver Profiles & Select Professional;
+:Select Visit Date, Time & Enter Service Notes;
+:Submit Booking Request;
+
+|System / Backend|
+:Create Firestore Document in 'bookings'
+Status: PENDING;
+:Dispatch Push Notification to Caregiver;
+
+|Caregiver Provider|
+:View Incoming Request on CaregiverMainActivity;
+if (Accept Request?) then (No)
+    :Tap 'Decline';
+    |System / Backend|
+    :Update Firestore Status: REJECTED;
+    |Family Client|
+    :Receive Declined Notification;
+    stop
+else (Yes)
+    |Caregiver Provider|
+    :Tap 'Accept';
+    |System / Backend|
+    :Update Firestore Status: ACCEPTED;
+endif
+
+|Caregiver Provider|
+:Arrive at Client Residence on Scheduled Time;
+:Tap 'Check-In' on BookingDetailActivity;
+
+|System / Backend|
+:Record checkInTimestamp (System.currentTimeMillis());
+:Update Booking Status: IN_PROGRESS;
+
+|Caregiver Provider|
+:Deliver Eldercare / Clinical Support;
+:Session Finished;
+:Tap 'Check-Out' on BookingDetailActivity;
+
+|System / Backend|
+:Capture checkOutTimestamp;
+:Fetch Caregiver Hourly Rate;
+partition "Automated Bill Calculation Use Case" {
+    :Compute Duration = CheckOut - CheckIn;
+    :Calculate Logged Hours = Round(Duration / 3,600,000, 2);
+    :Subtotal = Logged Hours * Hourly Rate;
+    :Total Amount = Subtotal + Platform Fee (₹50.0);
+}
+:Update Firestore Booking Document:
+Status: COMPLETED
+Total Logged Hours & Bill Details;
+:Emit Real-Time Snapshot Update;
+
+|Family Client|
+:Inspect Itemized Invoice on BookingDetailActivity;
+:Hand over Payment via Direct Cash or UPI;
+:Tap 'Mark Settled';
+
+|System / Backend|
+:Update Bill settlementStatus: SETTLED;
+
+|Family Client|
+:Open LeaveReviewDialog;
+:Select 1-5 Star Rating & Enter Feedback;
+:Submit Review;
+
+|System / Backend|
+:Save Document in 'reviews';
+:Recalculate Caregiver averageRating & totalReviews;
+
+|Family Client|
+stop
+
+@enduml
